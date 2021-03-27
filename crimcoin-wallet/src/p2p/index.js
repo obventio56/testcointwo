@@ -101,7 +101,7 @@ let handleSignalingData = data => {
   }
 };
 
-socket.on("data", data => {
+socket.on("broadcast", data => {
   console.log("Data received: ", data);
   handleSignalingData(data);
 });
@@ -113,5 +113,5 @@ socket.on("ready", () => {
 });
 
 let sendData = data => {
-  socket.emit("data", data);
+  socket.emit("broadcast", data);
 };
