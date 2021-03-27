@@ -1,0 +1,12 @@
+.container {
+  padding: 20px;
+}
+
+.privateKey {
+  display: flex;
+  column-gap: 5px;
+}
+
+.newToken {
+  word-break: break-all;
+}

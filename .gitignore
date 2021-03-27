@@ -1,0 +1,6 @@
+signaling_server/node_modules
+client/node_modules
+app/node_modules
+crimcoin-wallet/node_modules
+
+node_modules/
