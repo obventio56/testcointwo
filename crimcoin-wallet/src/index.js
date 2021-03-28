@@ -4,7 +4,6 @@ import "./index.css";
 import App from "./App";
 import reportWebVitals from "./reportWebVitals";
 import "./blockchain";
-import "./p2p";
 
 ReactDOM.render(
   <React.StrictMode>

@@ -14,29 +14,27 @@ mineBlock = async ({ block, target }) => {
 
   miningInterval = setInterval(async () => {
     if (nounce % 1000 === 0) {
-      console.log("still mining");
+      console.log("still mining", block.index);
     }
 
     block.nounce = nounce;
     const serializedData = enc.encode(serialize(block)).buffer;
     const hash = await crypto.subtle.digest("SHA-256", serializedData);
 
-    const byteArray = new Uint8Array(hash);
+    const hashArray = Array.from(new Uint8Array(hash));
+    const hexString = hashArray
+      .map(b => b.toString(16).padStart(2, "0"))
+      .join("");
 
-    for (let i = byteArray.length - 1; i >= 0; i--) {
-      if (byteArray[i] < target[i]) {
-        break;
-      }
-      if (byteArray[i] > target[i]) {
-        nounce++;
-        return;
-      }
+    const testInt = BigInt("0x" + hexString);
+
+    if (testInt > target) {
+      nounce++;
+      return;
     }
 
-    //console.log("hash string from miner", hashString, byteArray);
-
     clearInterval(miningInterval);
-    postMessage({ nounce, byteArray });
+    postMessage({ nounce });
   }, 1);
 };
 

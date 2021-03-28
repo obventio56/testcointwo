@@ -7,6 +7,7 @@
     "@testing-library/jest-dom": "^5.11.4",
     "@testing-library/react": "^11.1.0",
     "@testing-library/user-event": "^12.1.10",
+    "bignum": "^0.13.1",
     "concurrently": "^6.0.0",
     "electron": "^11.3.0",
     "electron-builder": "^22.9.1",
@@ -45,5 +46,9 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@types/jest": "^26.0.22",
+    "eslint-plugin-jest": "^24.3.2"
   }
 }

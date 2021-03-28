@@ -20,11 +20,15 @@ class UnspentTxOut {
 class TxIn {
   txOutId; // Transaction ID
   txOutIndex; // Index of TxOut in transaction TxOuts
+  amount;
+  address;
   signature;
 
-  constructor({ txOutId, txOutIndex, signature }) {
+  constructor({ txOutId, txOutIndex, amount, signature, address }) {
     this.txOutIndex = txOutIndex;
     this.txOutId = txOutId;
+    this.amount = amount;
+    this.address = address;
     this.signature = signature;
   }
 
@@ -33,11 +37,31 @@ class TxIn {
   }
 
   getIdData() {
-    return `${this.txOutId}${this.txOutIndex}`;
+    return `${this.txOutId}${this.txOutIndex}${this.amount}${this.address}`;
   }
 
   serialize() {
-    return `${this.address}${this.amount}${this.signature}`;
+    return `${this.txOutId}${this.txOutIndex}${this.amount}${this.address}${this.signature}`;
+  }
+
+  toObject() {
+    return {
+      txOutId: this.txOutId,
+      txOutIndex: this.txOutIndex,
+      amount: this.amount,
+      address: this.address,
+      signature: this.signature
+    };
+  }
+
+  static fromObject(TxInObj) {
+    return new TxIn({
+      txOutIndex: TxInObj.txOutIndex,
+      txOutId: TxInObj.txOutId,
+      amount: TxInObj.amount,
+      address: TxInObj.address,
+      signature: TxInObj.signature
+    });
   }
 }
 
@@ -57,6 +81,20 @@ class TxOut {
   serialize() {
     return `${this.address}${this.amount}`;
   }
+
+  toObject() {
+    return {
+      address: this.address,
+      amount: this.amount
+    };
+  }
+
+  static fromObject(TxOutObj) {
+    return new TxOut({
+      address: TxOutObj.address,
+      amount: TxOutObj.amount
+    });
+  }
 }
 
 class Transaction {
@@ -73,6 +111,18 @@ class Transaction {
     this.txIns = txIns;
     this.txOuts = txOuts;
     this.id = this.generateId();
+  }
+
+  static fromObject(transactionObj) {
+    const transaction = new Transaction({
+      type: transactionObj.type,
+      memo: transactionObj.memo,
+      txIns: transactionObj.txIns.map(txIn => TxIn.fromObject(txIn)),
+      txOuts: transactionObj.txOuts.map(txOut => TxOut.fromObject(txOut))
+    });
+
+    transaction.id = transactionObj.id;
+    return transaction;
   }
 
   sign(privateKey) {
@@ -102,6 +152,16 @@ class Transaction {
     const serializedTxIns = this.txIns.map(txIn => txIn.serialize());
     const serializedTxOuts = this.txOuts.map(txOut => txOut.serialize());
     return `${this.type}${this.memo}${this.id}${serializedTxIns}${serializedTxOuts}`;
+  }
+
+  toObject() {
+    return {
+      type: this.type,
+      id: this.id,
+      memo: this.memo,
+      txIns: this.txIns.map(txIn => txIn.toObject()),
+      txOuts: this.txOuts.map(txOut => txOut.toObject())
+    };
   }
 }
 

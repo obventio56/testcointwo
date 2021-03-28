@@ -20,98 +20,193 @@ const PC_CONFIG = {
   ]
 };
 
-let socket = io(SIGNALING_SERVER_URL);
-let pc;
+const joinNetwork = blockchain => {
+  let socket = io(SIGNALING_SERVER_URL);
+  const serverConnections = {};
+  const peerConnections = {};
 
-const createPeerConnection = () => {
-  try {
-    pc = new RTCPeerConnection(PC_CONFIG);
-    pc.onicecandidate = onIceCandidate;
-    pc.ondatachannel = ondatachannel;
-    const dc = pc.createDataChannel("io");
+  const createPeerConnection = ({ id }) => {
+    try {
+      serverConnections[id] = new RTCPeerConnection(PC_CONFIG);
+      serverConnections[id].onicecandidate = onIceCandidate({ id });
+      serverConnections[id].ondatachannel = ondatachannel({ id });
+      const dc = serverConnections[id].createDataChannel(`${id}`);
 
-    dc.onmessage = event => {
-      console.log("a block from afar", event);
-    };
+      dc.onmessage = event => {
+        handlePeerData({ data: event, from: id });
+      };
 
-    console.log("PeerConnection created");
-  } catch (error) {
-    console.error("PeerConnection failed: ", error);
-  }
-};
-
-let setAndSendLocalDescription = sessionDescription => {
-  pc.setLocalDescription(sessionDescription);
-  console.log("Local description set");
-  sendData(sessionDescription);
-};
-
-let sendOffer = () => {
-  console.log("Send offer");
-  pc.createOffer().then(setAndSendLocalDescription, error => {
-    console.error("Send offer failed: ", error);
-  });
-};
-
-let sendAnswer = () => {
-  console.log("Send answer");
-  pc.createAnswer().then(setAndSendLocalDescription, error => {
-    console.error("Send answer failed: ", error);
-  });
-};
-
-let onIceCandidate = event => {
-  if (event.candidate) {
-    console.log("ICE candidate");
-    sendData({
-      type: "candidate",
-      candidate: event.candidate
-    });
-  }
-};
-
-let ondatachannel = event => {
-  console.log("Data channel is created!");
-  event.channel.onopen = function() {
-    console.log("Data channel is open and ready to be used.");
+      console.log("PeerConnection created");
+    } catch (error) {
+      console.error("PeerConnection failed: ", error);
+    }
   };
 
-  emitter.on("block", data => {
-    if (event.channel.readyState === "open") {
-      //console.log("block to send");
+  let setAndSendLocalDescription = ({ id }) => sessionDescription => {
+    serverConnections[id].setLocalDescription(sessionDescription);
+    console.log("Local description set");
+    sendMessage({ data: sessionDescription, to: id });
+  };
 
-      event.channel.send(JSON.stringify({ ...data }));
+  let sendOffer = ({ id }) => {
+    console.log("Send offer");
+    serverConnections[id]
+      .createOffer()
+      .then(setAndSendLocalDescription({ id }), error => {
+        console.error("Send offer failed: ", error);
+      });
+  };
+
+  let sendAnswer = ({ id }) => {
+    console.log("Send answer");
+    serverConnections[id]
+      .createAnswer()
+      .then(setAndSendLocalDescription({ id }), error => {
+        console.error("Send answer failed: ", error);
+      });
+  };
+
+  let onIceCandidate = ({ id }) => event => {
+    if (event.candidate) {
+      console.log("ICE candidate");
+      sendMessage({
+        data: {
+          type: "candidate",
+          candidate: event.candidate
+        },
+        to: id
+      });
     }
+  };
+
+  let ondatachannel = ({ id }) => event => {
+    event.channel.onopen = function() {
+      console.log("Data channel is open and ready to be used.");
+    };
+
+    peerConnections[id] = event.channel;
+  };
+
+  const handlePeerData = ({ data: message, from }) => {
+    const { data, type } = JSON.parse(message.data);
+
+    switch (type) {
+      case "block":
+        if (data.hash === blockchain.blocks[data.index]?.hash) {
+          return;
+        }
+
+        if (peerConnections[from].blocksBuffer) return;
+
+        blockchain.receiveBlocks({ blocks: [data], from });
+        break;
+      case "requestBlocks":
+        sendToPeer({
+          to: from,
+          data: {
+            type: "blockRange",
+            data: blockchain.getBlockRange(data.index - data.count, data.index)
+          }
+        });
+        break;
+      case "blockRange":
+        const blocks = data.concat(peerConnections[from].blocksBuffer || []);
+
+        blockchain.receiveBlocks({ blocks, from });
+
+        break;
+    }
+  };
+
+  let handleSignalingData = message => {
+    const { data, from: id } = message;
+    switch (data.type) {
+      case "offer":
+        createPeerConnection({ id });
+        serverConnections[id].setRemoteDescription(
+          new RTCSessionDescription(data)
+        );
+        sendAnswer({ id });
+        break;
+      case "answer":
+        serverConnections[id].setRemoteDescription(
+          new RTCSessionDescription(data)
+        );
+        break;
+      case "candidate":
+        serverConnections[id].addIceCandidate(
+          new RTCIceCandidate(data.candidate)
+        );
+        break;
+    }
+  };
+
+  socket.on("broadcast", data => {
+    console.log("Broadcast received: ", data);
+    handleSignalingData(data);
+  });
+
+  socket.on("message", data => {
+    console.log("Message received: ", data);
+    handleSignalingData(data);
+  });
+
+  socket.on("ready", ({ id }) => {
+    console.log("Ready");
+    createPeerConnection({ id });
+    sendOffer({ id });
+  });
+
+  /*
+const broadcastData = data => {
+  socket.emit("broadcast", data);
+};
+*/
+
+  const sendMessage = data => {
+    socket.emit("message", data);
+  };
+
+  const broadcastToPeers = data => {
+    for (const peer in peerConnections) {
+      if (peerConnections[peer].readyState === "open") {
+        peerConnections[peer].send(JSON.stringify(data));
+      }
+    }
+  };
+
+  const sendToPeer = ({ to, data }) => {
+    if (peerConnections[to].readyState === "open") {
+      peerConnections[to].send(JSON.stringify(data));
+    }
+  };
+
+  emitter.on("blockAdded", ({ index }) => {
+    if (blockchain.blocks[index].transactions.length) {
+      console.log(blockchain.blocks[index]);
+    }
+
+    broadcastToPeers({
+      type: "block",
+      data: blockchain.getBlockDataAtIndex({ index })
+    });
+  });
+
+  emitter.on("clearBlockBuffer", ({ id }) => {
+    delete peerConnections[id].blocksBuffer;
+  });
+
+  emitter.on("requestBlocks", ({ blocks, from }) => {
+    const index = blocks[0].index;
+    const count = 10;
+
+    peerConnections[from].blocksBuffer = blocks;
+
+    sendToPeer({
+      to: from,
+      data: { type: "requestBlocks", data: { index, count } }
+    });
   });
 };
 
-let handleSignalingData = data => {
-  switch (data.type) {
-    case "offer":
-      createPeerConnection();
-      pc.setRemoteDescription(new RTCSessionDescription(data));
-      sendAnswer();
-      break;
-    case "answer":
-      pc.setRemoteDescription(new RTCSessionDescription(data));
-      break;
-    case "candidate":
-      pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-      break;
-  }
-};
-
-socket.on("broadcast", data => {
-  console.log("Data received: ", data);
-  handleSignalingData(data);
-});
-
-socket.on("ready", () => {
-  console.log("Ready");
-  createPeerConnection();
-  sendOffer();
-});
-
-let sendData = data => {
-  socket.emit("broadcast", data);
-};
+export { joinNetwork };

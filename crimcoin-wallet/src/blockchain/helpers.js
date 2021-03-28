@@ -2,13 +2,16 @@ const crypto = window.require("crypto");
 const electron = window.require("electron");
 const fs = window.require("fs");
 const path = window.require("path");
+const process = window.require("process");
 
 const {
   remote: { app }
 } = electron;
 
 const HASH_ALG = "sha256";
-const CONFIG_FILE = "config.json";
+const CONFIG_FILE = `${process.pid}config.json`;
+
+console.log(CONFIG_FILE);
 
 const getConfigPath = () => path.join(app.getPath("userData"), CONFIG_FILE);
 
@@ -30,15 +33,17 @@ const getPrivateKey = () => {
 };
 
 const getPublicKey = () => {
-  return pubFromPriv(readConfig().privateKey);
+  const privateKey = readConfig().privateKey;
+  if (!privateKey) return;
+  return pubFromPriv(privateKey);
 };
 
 const compareBuffer = (target, test) => {
   for (let i = test.length - 1; i >= 0; i--) {
-    if (test[i] < target[i]) {
+    if (test[i] < (target[i] || 0)) {
       break;
     }
-    if (test[i] > target[i]) {
+    if (test[i] > (target[i] || 0)) {
       return false;
     }
   }

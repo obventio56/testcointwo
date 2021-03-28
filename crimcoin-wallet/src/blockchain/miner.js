@@ -5,7 +5,7 @@ const initMiner = blockchain => {
   const worker = new Worker(path.resolve(__dirname, "miner.js"));
 
   const mineABlock = blockData => {
-    const targetBuffer = blockchain.getTargetBuffer();
+    const target = blockchain.getTarget();
 
     //console.log(targetBuffer, blockData);
 
@@ -18,7 +18,7 @@ const initMiner = blockchain => {
     };
     */
 
-    worker.postMessage({ block: blockData, target: targetBuffer });
+    worker.postMessage({ block: blockData, target });
   };
 
   worker.onmessage = e => {

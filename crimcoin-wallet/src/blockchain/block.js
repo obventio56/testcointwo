@@ -1,5 +1,5 @@
 import { digest } from "./helpers";
-
+import { Transaction } from "./transaction";
 class Block {
   index;
   hash;
@@ -15,6 +15,19 @@ class Block {
     this.transactions = transactions;
     this.nounce = nounce || 0;
     this.hash = this.generateHash();
+  }
+
+  static fromObject(blockObj) {
+    const block = new Block({
+      index: blockObj.index,
+      previousHash: blockObj.previousHash,
+      timestamp: blockObj.timestamp,
+      transactions: blockObj.transactions.map(t => Transaction.fromObject(t)),
+      nounce: blockObj.nounce
+    });
+
+    block.hash = blockObj.hash;
+    return block;
   }
 
   generateHash() {
@@ -44,6 +57,17 @@ class Block {
       previousHash: this.previousHash,
       timestamp: this.timestamp,
       transactions: serializedTransactions,
+      nounce: this.nounce,
+      hash: this.hash
+    };
+  }
+
+  toObject() {
+    return {
+      index: this.index,
+      previousHash: this.previousHash,
+      timestamp: this.timestamp,
+      transactions: this.transactions.map(t => t.toObject()),
       nounce: this.nounce,
       hash: this.hash
     };
