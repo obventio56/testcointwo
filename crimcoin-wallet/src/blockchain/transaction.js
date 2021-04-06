@@ -137,12 +137,14 @@ class Transaction {
     );
   }
 
-  validate(unspentTxOuts) {
+  validate(unspentTxOuts, block) {
     switch (this.type) {
       case "KING_TOKEN":
         return validateKingToken(this, unspentTxOuts);
       case "INVITE":
         return validateInvite(this, unspentTxOuts);
+      case "COINBASE":
+        return validateCoinbase(this, unspentTxOuts, block);
       default:
         return validateTransaction(this, unspentTxOuts);
     }
@@ -193,6 +195,8 @@ const validateInvite = (transaction, unspentTxOuts) => {
 
   return unspentTxOuts;
 };
+
+const validateCoinbase = ()
 
 const validateTransaction = (transaction, unspentTxOuts) => {
   let amoutnIn = 0;

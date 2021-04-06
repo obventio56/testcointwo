@@ -2,7 +2,7 @@
 
 import { Block } from "./block";
 import { Transaction, TxIn, TxOut, UnspentTxOut } from "./transaction";
-import { pubFromPriv, compareBuffer } from "./helpers";
+import { pubFromPriv, verify } from "./helpers";
 import emitter from "../events";
 
 import cloneDeep from "lodash/cloneDeep";
@@ -208,6 +208,38 @@ class Blockchain {
     blockchain.unspentTxOuts = resultUnspentTxOuts;
 
     return blockchain;
+  }
+
+  validateTransaction(transactionData) {
+    const { id } = transactionData;
+
+    let unspentTxOuts = cloneDeep(this.unspentTxOuts);
+    let inSum = 0;
+
+    for (const txIn of transactionData.txIns) {
+      const { address: publicKey, signature, txOutId, txOutIndex } = txIn;
+      if (!verify(publicKey, id, signature)) return false;
+      const utxo = unspentTxOuts.find(
+        utxo =>
+          utxo.txOutId === txOutId &&
+          utxo.txOutIndex === txOutIndex &&
+          utxo.address === publicKey
+      );
+
+      if (!utxo) return false;
+      if (utxo.amount < txIn.amount) return false;
+
+      inSum += txIn.amount;
+    }
+
+    const outSum = transactionData.txOuts.reduce(
+      (outSum, txOut) => outSum + txOut.amount,
+      0
+    );
+
+    if (outSum > inSum) return false;
+
+    return Transaction.fromObject(transactionData);
   }
 
   generateTransaction(privateKey, transactionData) {

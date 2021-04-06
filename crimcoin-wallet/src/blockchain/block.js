@@ -76,7 +76,7 @@ class Block {
   // Validate transactions one at a time
   validateTransactions(unspentTxOuts) {
     for (const t of this.transactions) {
-      unspentTxOuts = t.validate(unspentTxOuts);
+      unspentTxOuts = t.validate(unspentTxOuts, this);
       if (!unspentTxOuts) {
         break;
       }

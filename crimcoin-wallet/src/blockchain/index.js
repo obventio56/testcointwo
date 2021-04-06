@@ -56,6 +56,16 @@ let myPublicKey = getPublicKey();
     mineABlock(miningBlock.getBlockData());
   };
 
+  const addToMemPool = transaction => {
+    if (memPool.find(t => t.id === transaction.id)) return false;
+    memPool.push(transaction);
+    emitter.emit("newTransaction", {
+      transactionObject: transaction.toObject()
+    });
+
+    updateMiningBlock();
+  };
+
   emitter.on("requestToken", async () => {
     const { publicKey, privateKey } = await generateKeyPair();
     const invite = new Transaction({
@@ -77,8 +87,17 @@ let myPublicKey = getPublicKey();
 
     transaction.sign(myPrivateKey);
 
-    memPool.push(transaction);
-    updateMiningBlock();
+    addToMemPool(transaction);
+  });
+
+  emitter.on("peerTransaction", ({ transactionData }) => {
+    const transaction = blockchain.validateTransaction(transactionData);
+
+    if (!transaction) {
+      console.log("invalid transaction");
+      return;
+    }
+    addToMemPool(transaction);
   });
 
   emitter.on("minedBlock", blockData => {
@@ -97,7 +116,6 @@ let myPublicKey = getPublicKey();
       blockchain.blocks[blockchain.blocks.length - 1].transactions;
 
     memPool = memPool.filter(t => !newTransactions.some(nt => nt.id === t.id));
-
     updateMiningBlock();
   });
 

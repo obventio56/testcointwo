@@ -91,13 +91,14 @@ const joinNetwork = blockchain => {
     const { data, type } = JSON.parse(message.data);
 
     switch (type) {
+      case "transaction":
+        emitter.emit("peerTransaction", { transactionData: data });
+        break;
       case "block":
         if (data.hash === blockchain.blocks[data.index]?.hash) {
           return;
         }
-
         if (peerConnections[from].blocksBuffer) return;
-
         blockchain.receiveBlocks({ blocks: [data], from });
         break;
       case "requestBlocks":
@@ -194,6 +195,13 @@ const broadcastData = data => {
 
   emitter.on("clearBlockBuffer", ({ id }) => {
     delete peerConnections[id].blocksBuffer;
+  });
+
+  emitter.on("newTransaction", ({ transactionObject }) => {
+    broadcastToPeers({
+      type: "transaction",
+      data: transactionObject
+    });
   });
 
   emitter.on("requestBlocks", ({ blocks, from }) => {

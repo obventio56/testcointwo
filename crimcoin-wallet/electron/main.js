@@ -12,12 +12,14 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: true,
       enableRemoteModule: true,
-      nodeIntegrationInWorker: true
+      nodeIntegrationInWorker: true,
+      contextIsolation: false,
+      webSecurity: false
     }
   });
   const startURL = isDev
     ? "http://localhost:3000"
-    : `file://${path.join(__dirname, "../build/index.html")}`;
+    : `file://${path.join(__dirname, "../index.html")}`;
 
   mainWindow.loadURL(startURL);
 
