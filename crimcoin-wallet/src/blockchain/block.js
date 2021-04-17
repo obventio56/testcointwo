@@ -1,5 +1,8 @@
-import { digest } from "./helpers";
-import { Transaction } from "./transaction";
+import { digest, pubFromPriv } from "./helpers";
+import { Transaction, TxOut } from "./transaction";
+
+const COINBASE_REWARD = 100;
+
 class Block {
   index;
   hash;
@@ -73,10 +76,39 @@ class Block {
     };
   }
 
+  getTransactionFee() {
+    return this.transactions.reduce(
+      (fees, transaction) => fees + (transaction.fee || 0),
+      0
+    );
+  }
+
+  addCoinbase({ privateKey }) {
+    const address = pubFromPriv(privateKey);
+    const amount = this.getTransactionFee() + COINBASE_REWARD;
+
+    this.transactions.splice(
+      0,
+      0,
+      new Transaction({
+        type: "COINBASE",
+        fee: 0,
+        memo: this.index,
+        txIns: [],
+        txOuts: [
+          new TxOut({
+            address,
+            amount
+          })
+        ]
+      })
+    );
+  }
+
   // Validate transactions one at a time
-  validateTransactions(unspentTxOuts) {
+  validateTransactions(unspentTxOuts, target) {
     for (const t of this.transactions) {
-      unspentTxOuts = t.validate(unspentTxOuts, this);
+      unspentTxOuts = t.validate(unspentTxOuts, this, target);
       if (!unspentTxOuts) {
         break;
       }

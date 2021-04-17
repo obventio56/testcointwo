@@ -2,7 +2,7 @@ import { digest, sign, verify } from "./helpers";
 
 const KING_PUBLIC =
   "3059301306072a8648ce3d020106082a8648ce3d030107034200041e577c985f0b20f73bad4ee3b9df350965d05a3634b7e277fd75b4b63ded21531b3f520570fbb072d60915d65295f324dfb727e1bb101a3849587c4852e7ec6a";
-
+const COINBASE_REWARD = 100;
 class UnspentTxOut {
   txOutId;
   txOutIndex;
@@ -101,15 +101,17 @@ class Transaction {
   type;
   memo;
   id;
+  fee;
 
   txIns;
   txOuts;
 
-  constructor({ type, memo, txIns, txOuts }) {
+  constructor({ type, memo, txIns, txOuts, fee = 0 }) {
     this.type = type;
     this.memo = memo;
     this.txIns = txIns;
     this.txOuts = txOuts;
+    this.fee = fee;
     this.id = this.generateId();
   }
 
@@ -117,6 +119,7 @@ class Transaction {
     const transaction = new Transaction({
       type: transactionObj.type,
       memo: transactionObj.memo,
+      fee: transactionObj.fee,
       txIns: transactionObj.txIns.map(txIn => TxIn.fromObject(txIn)),
       txOuts: transactionObj.txOuts.map(txOut => TxOut.fromObject(txOut))
     });
@@ -133,18 +136,18 @@ class Transaction {
     const serializedTxIns = this.txIns.map(txIn => txIn.getIdData());
     const serializedTxOuts = this.txOuts.map(txOut => txOut.getIdData());
     return digest(
-      `${this.type}${this.memo}${serializedTxIns}${serializedTxOuts}`
+      `${this.type}${this.fee}${this.memo}${serializedTxIns}${serializedTxOuts}`
     );
   }
 
-  validate(unspentTxOuts, block) {
+  validate(unspentTxOuts, block, target) {
     switch (this.type) {
       case "KING_TOKEN":
         return validateKingToken(this, unspentTxOuts);
       case "INVITE":
         return validateInvite(this, unspentTxOuts);
       case "COINBASE":
-        return validateCoinbase(this, unspentTxOuts, block);
+        return validateCoinbase(this, unspentTxOuts, block, target);
       default:
         return validateTransaction(this, unspentTxOuts);
     }
@@ -153,7 +156,7 @@ class Transaction {
   serialize() {
     const serializedTxIns = this.txIns.map(txIn => txIn.serialize());
     const serializedTxOuts = this.txOuts.map(txOut => txOut.serialize());
-    return `${this.type}${this.memo}${this.id}${serializedTxIns}${serializedTxOuts}`;
+    return `${this.type}${this.fee}${this.memo}${this.id}${serializedTxIns}${serializedTxOuts}`;
   }
 
   toObject() {
@@ -161,6 +164,7 @@ class Transaction {
       type: this.type,
       id: this.id,
       memo: this.memo,
+      fee: this.fee,
       txIns: this.txIns.map(txIn => txIn.toObject()),
       txOuts: this.txOuts.map(txOut => txOut.toObject())
     };
@@ -196,7 +200,31 @@ const validateInvite = (transaction, unspentTxOuts) => {
   return unspentTxOuts;
 };
 
-const validateCoinbase = ()
+const validateCoinbase = (transaction, unspentTxOuts, block, target) => {
+  if (block.transactions[0].id !== transaction.id) return false;
+
+  if (transaction.txIns.length || !transaction.txOuts.length) return false;
+  if (transaction.txOuts.length > 1) return false;
+
+  // Potentially should replace with function
+  const reward = COINBASE_REWARD;
+  const fees = block.getTransactionFee();
+
+  if (transaction.txOuts[0].amount > reward + fees) return false;
+
+  transaction.txOuts.forEach((txOut, index) => {
+    unspentTxOuts.push(
+      new UnspentTxOut({
+        txOutId: transaction.id,
+        txOutIndex: index,
+        amount: txOut.amount,
+        address: txOut.address
+      })
+    );
+  });
+
+  return unspentTxOuts;
+};
 
 const validateTransaction = (transaction, unspentTxOuts) => {
   let amoutnIn = 0;

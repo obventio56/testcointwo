@@ -8,6 +8,7 @@ import { joinNetwork } from "../p2p";
 
 const KING_PRIVATE =
   "307702010104206df98d8728b8bfe8cde9121462c270ccbd1e1596fdf570a86379f0e61f5b5c34a00a06082a8648ce3d030107a144034200041e577c985f0b20f73bad4ee3b9df350965d05a3634b7e277fd75b4b63ded21531b3f520570fbb072d60915d65295f324dfb727e1bb101a3849587c4852e7ec6a";
+const TRANSACTIONS_PER_BLOCK = 100;
 
 const blockchain = new Blockchain({ blocks: [genesis] });
 
@@ -50,9 +51,24 @@ let myPublicKey = getPublicKey();
   let miningBlock;
   const { mineABlock } = initMiner(blockchain);
 
+  const getTransactionFee = () => {
+    if (memPool.length < TRANSACTIONS_PER_BLOCK) return 1;
+    memPool.sort((a, b) => {
+      if (a == b) return 0;
+      return a < b ? 1 : -1;
+    });
+    return memPool[TRANSACTIONS_PER_BLOCK - 1].fee + 1;
+  };
+
   const updateMiningBlock = () => {
     const transactions = memPool.slice(0, 10);
     miningBlock = blockchain.generateBlock({ transactions });
+    if (myPrivateKey) {
+      miningBlock.addCoinbase({ privateKey: myPrivateKey });
+    }
+
+    emitter.emit("feeUpdate", { fee: getTransactionFee() });
+
     mineABlock(miningBlock.getBlockData());
   };
 
@@ -80,6 +96,8 @@ let myPublicKey = getPublicKey();
   });
 
   emitter.on("transaction", transactionData => {
+    transactionData.fee = getTransactionFee();
+
     const transaction = blockchain.generateTransaction(
       myPrivateKey,
       transactionData

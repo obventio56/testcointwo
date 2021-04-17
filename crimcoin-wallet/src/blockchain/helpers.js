@@ -9,11 +9,16 @@ const {
 } = electron;
 
 const HASH_ALG = "sha256";
+
+// TODO: remove PID
 const CONFIG_FILE = `${process.pid}config.json`;
+const BLOCKCHAIN_FILE = `${process.pid}blockchain.json`;
 
 console.log(CONFIG_FILE);
 
 const getConfigPath = () => path.join(app.getPath("userData"), CONFIG_FILE);
+const getBlockchainPath = () =>
+  path.join(app.getPath("userData"), BLOCKCHAIN_FILE);
 
 const readConfig = () => {
   try {
@@ -21,6 +26,14 @@ const readConfig = () => {
   } catch {
     return {};
   }
+};
+
+const saveBlockchain = blockchainData => {
+  fs.writeFileSync(getBlockchainPath(), JSON.stringify(blockchainData));
+};
+
+const readBlockchain = () => {
+  return fs.readFileSync(getBlockchainPath());
 };
 
 const writeConfig = data => {
@@ -146,5 +159,7 @@ export {
   pubFromPriv,
   compareBuffer,
   getPrivateKey,
-  getPublicKey
+  getPublicKey,
+  readBlockchain,
+  saveBlockchain
 };

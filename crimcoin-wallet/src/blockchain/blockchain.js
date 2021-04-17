@@ -6,6 +6,8 @@ import { pubFromPriv, verify } from "./helpers";
 import emitter from "../events";
 
 import cloneDeep from "lodash/cloneDeep";
+import uniqueId from "lodash/uniqueId";
+
 class Blockchain {
   blocks;
   unspentTxOuts;
@@ -17,7 +19,12 @@ class Blockchain {
     this.unspentTxOuts = [];
     this.target = BigInt("0x" + "f".repeat(64));
     this.targetIndex = 0;
+    this.dbId = uniqueId("blockchain_");
   }
+
+  get blocks() {}
+
+  set blocks(blocks) {}
 
   getTarget() {
     this.recalculateTarget();
@@ -210,6 +217,7 @@ class Blockchain {
     return blockchain;
   }
 
+  // Validates a peer transaction before adding to mempool
   validateTransaction(transactionData) {
     const { id } = transactionData;
 
@@ -243,10 +251,11 @@ class Blockchain {
   }
 
   generateTransaction(privateKey, transactionData) {
-    const { amount, address } = transactionData;
+    const { amount, address, fee = 0 } = transactionData;
     let unspentTxOuts = cloneDeep(this.unspentTxOuts);
+
     const TxIns = [];
-    let remainingAmount = amount;
+    let remainingAmount = amount + fee;
 
     const searchAddress = pubFromPriv(privateKey);
 
@@ -284,6 +293,10 @@ class Blockchain {
       new TxOut({
         address,
         amount
+      }),
+      new TxOut({
+        address: "fees",
+        amount: fee
       })
     ];
 
@@ -382,7 +395,10 @@ const isValidNextBlock = (previousBlock, newBlock, unspentTxOuts, target) => {
     return false;
   }
 
-  unspentTxOuts = newBlock.validateTransactions(cloneDeep(unspentTxOuts));
+  unspentTxOuts = newBlock.validateTransactions(
+    cloneDeep(unspentTxOuts),
+    target
+  );
 
   return unspentTxOuts;
 };
