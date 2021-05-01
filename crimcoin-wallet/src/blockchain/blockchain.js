@@ -14,17 +14,93 @@ class Blockchain {
   target;
   targetIndex;
 
-  constructor({ blocks }) {
-    this.blocks = blocks;
-    this.unspentTxOuts = [];
-    this.target = BigInt("0x" + "f".repeat(64));
-    this.targetIndex = 0;
-    this.dbId = uniqueId("blockchain_");
+  /*
+  constructor({ blocks, dbId = false }) {
+
+  }
+  */
+
+  static create({ blocks }) {
+    return new Promise((resolve, reject) => {
+      const blockchain = new Blockchain();
+      blockchain.blocks = blocks;
+      blockchain.unspentTxOuts = [];
+      blockchain.target = BigInt("0x" + "f".repeat(64));
+      blockchain.targetIndex = 0;
+      blockchain.dbId = dbId || uniqueId("blockchain_");
+
+      const request = window.indexedDB.open(blockchain.dbId, 1);
+      request.onerror = function(event) {
+        reject(event);
+      };
+      request.onsuccess = function(event) {
+        blockchain.db = event.target.result;
+        resolve(blockchain);
+      };
+      request.onupgradeneeded = function(event) {
+        const db = event.target.result;
+        const objectStore = db.createObjectStore("blocks", {
+          keyPath: "index"
+        });
+
+        objectStore.transaction.oncomplete = function() {
+          var blocksStore = db
+            .transaction("blocks", "readwrite")
+            .objectStore("blocks");
+          for (const block of blocks) {
+            blocksStore.add(block);
+          }
+        };
+      };
+    });
   }
 
-  get blocks() {}
+  getBlocks(from, to) {
+    return new Promise((resolve, reject) => {
+      if (!this.db) throw "Blockchain db not defined.";
 
-  set blocks(blocks) {}
+      const result = [];
+      const keyRangeValue = IDBKeyRange.bound(from, to, false, true);
+      const transaction = db.transaction(["blocks"], "readonly");
+      const blocksStore = transaction.objectStore("blocks");
+
+      const openCursor = blocksStore.openCursor(keyRangeValue);
+
+      openCursor.onsuccess = function(event) {
+        var cursor = event.target.result;
+        if (cursor) {
+          result.push(Block.fromObject(cursor.value));
+          cursor.continue();
+        } else {
+          resolve(result);
+        }
+      };
+
+      openCursor.onerror = function(event) {
+        reject(event);
+      };
+    });
+  }
+
+  async setBlocks(blocks = []) {
+    if (!this.db) throw "Blockchain db not defined.";
+
+    var blocksStore = db
+      .transaction(["blocks"], "readwrite")
+      .objectStore("blocks");
+
+    for (const block of blocks) {
+      await new Promise((resolve, reject) => {
+        var request = blocksStore.put(block.toObject);
+        request.onerror = function(event) {
+          reject("error writing block");
+        };
+        request.onsuccess = function(event) {
+          resolve(true);
+        };
+      });
+    }
+  }
 
   getTarget() {
     this.recalculateTarget();
