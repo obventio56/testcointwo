@@ -22,10 +22,6 @@ class Blockchain {
     this.dbId = uniqueId("blockchain_");
   }
 
-  get blocks() {}
-
-  set blocks(blocks) {}
-
   getTarget() {
     this.recalculateTarget();
     return this.target;
