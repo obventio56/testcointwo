@@ -9,10 +9,12 @@ io.on("connection", socket => {
   console.log(`Connected ${socket.id}`);
   socket.broadcast.emit("ready", { id: socket.id });
 
+  /*
   socket.on("broadcast", data => {
     console.log(`Broadcast from ${socket.id}: ${data}`);
-    socket.broadcast.emit("broadcast", data);
+    socket.broadcast.emit("broadcast", { data, from: socket.id });
   });
+  */
 
   socket.on("message", data => {
     console.log(`Message from ${socket.id} to ${data.to}: ${data}`);
