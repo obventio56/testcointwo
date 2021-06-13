@@ -19,12 +19,7 @@ class Blockchain {
     this.unspentTxOuts = [];
     this.target = BigInt("0x" + "f".repeat(64));
     this.targetIndex = 0;
-    this.dbId = uniqueId("blockchain_");
   }
-
-  get blocks() {}
-
-  set blocks(blocks) {}
 
   getTarget() {
     this.recalculateTarget();
@@ -53,7 +48,7 @@ class Blockchain {
 
       const last10Blocks = this.blocks
         .slice(this.targetIndex, this.targetIndex + 10)
-        .map(b => b.timestamp);
+        .map((b) => b.timestamp);
 
       const interval = (last10Blocks[9] - last10Blocks[0]) / 10;
       const scaleFactor = Math.sqrt(interval / 5000);
@@ -79,7 +74,7 @@ class Blockchain {
 
   getBalance({ address }) {
     return this.unspentTxOuts
-      .filter(utxo => utxo.address === address)
+      .filter((utxo) => utxo.address === address)
       .reduce((balance, utxo) => balance + utxo.amount, 0);
   }
 
@@ -112,7 +107,7 @@ class Blockchain {
   }
 
   getBlockRange(start, end) {
-    return this.blocks.slice(Math.max(start, 0), end).map(b => b.toObject());
+    return this.blocks.slice(Math.max(start, 0), end).map((b) => b.toObject());
   }
 
   receiveBlocks({ blocks, from }) {
@@ -142,7 +137,7 @@ class Blockchain {
     console.log("higer diff");
 
     const testingBlockchain = this.getStateAtIndex({
-      index: newBlocks[0].index
+      index: newBlocks[0].index,
     });
 
     for (let i = 0; i < newBlocks.length; i++) {
@@ -166,14 +161,14 @@ class Blockchain {
     this.targetIndex = testingBlockchain.targetIndex;
 
     emitter.emit("clearBlockBuffer", { id: from });
-    newBlocks.forEach(b => {
+    newBlocks.forEach((b) => {
       emitter.emit("blockAdded", { index: b.index });
     });
   }
 
   getStateAtIndex({ index }) {
     const blockchain = new Blockchain({
-      blocks: this.blocks.slice(0, index)
+      blocks: this.blocks.slice(0, index),
     });
 
     blockchain.recalculateTarget();
@@ -181,18 +176,18 @@ class Blockchain {
     let resultUnspentTxOuts = cloneDeep(this.unspentTxOuts);
     const removedBlocks = this.blocks.slice(index);
 
-    removedBlocks.reverse().map(b => {
+    removedBlocks.reverse().map((b) => {
       for (const transaction of b.transactions) {
         resultUnspentTxOuts = resultUnspentTxOuts.filter(
-          utxo => utxo.txOutId !== transaction.id
+          (utxo) => utxo.txOutId !== transaction.id
         );
       }
 
       b.transactions
         .reduce((txIns, t) => [...txIns, ...t.txIns], [])
-        .forEach(txIn => {
+        .forEach((txIn) => {
           const utxo = resultUnspentTxOuts.find(
-            utxo =>
+            (utxo) =>
               utxo.txOutId === txIn.txOutId &&
               utxo.txOutIndex === txIn.txOutIndex
           );
@@ -203,7 +198,7 @@ class Blockchain {
                 address: txIn.address,
                 amount: txIn.amount,
                 txOutId: txIn.txOutId,
-                txOutIndex: txIn.txOutIndex
+                txOutIndex: txIn.txOutIndex,
               })
             );
           } else {
@@ -228,7 +223,7 @@ class Blockchain {
       const { address: publicKey, signature, txOutId, txOutIndex } = txIn;
       if (!verify(publicKey, id, signature)) return false;
       const utxo = unspentTxOuts.find(
-        utxo =>
+        (utxo) =>
           utxo.txOutId === txOutId &&
           utxo.txOutIndex === txOutIndex &&
           utxo.address === publicKey
@@ -260,7 +255,7 @@ class Blockchain {
     const searchAddress = pubFromPriv(privateKey);
 
     while (remainingAmount > 0) {
-      const utxo = unspentTxOuts.find(utxo => utxo.address === searchAddress);
+      const utxo = unspentTxOuts.find((utxo) => utxo.address === searchAddress);
 
       //console.log(utxo);
 
@@ -271,14 +266,14 @@ class Blockchain {
           amount: Math.min(utxo.amount, remainingAmount),
           address: utxo.address,
           txOutId: utxo.txOutId,
-          txOutIndex: utxo.txOutIndex
+          txOutIndex: utxo.txOutIndex,
         })
       );
 
       if (utxo.amount < remainingAmount) {
         remainingAmount -= utxo.amount;
         unspentTxOuts = unspentTxOuts.filter(
-          _utxo =>
+          (_utxo) =>
             _utxo.txOutId !== utxo.txOutId ||
             _utxo.txOutIndex !== utxo.txOutIndex
         );
@@ -292,19 +287,19 @@ class Blockchain {
     const TxOuts = [
       new TxOut({
         address,
-        amount
+        amount,
       }),
       new TxOut({
         address: "fees",
-        amount: fee
-      })
+        amount: fee,
+      }),
     ];
 
     return new Transaction({
       type: "PAYMENT",
       memo: "",
       txIns: TxIns,
-      txOuts: TxOuts
+      txOuts: TxOuts,
     });
   }
 
@@ -341,14 +336,14 @@ class Blockchain {
       index: this.blocks.length,
       timestamp: new Date().getTime(),
       transactions: transactions,
-      previousHash: this.blocks[this.blocks.length - 1].hash
+      previousHash: this.blocks[this.blocks.length - 1].hash,
     };
 
     return new Block(blockProps);
   }
 }
 
-const sumDifficulty = blocks => {
+const sumDifficulty = (blocks) => {
   const minDifficulty = BigInt("0x" + "f".repeat(64));
   return blocks.reduce(
     (difficulty, block) =>
@@ -357,7 +352,7 @@ const sumDifficulty = blocks => {
   );
 };
 
-const isValidBlockStructure = block => {
+const isValidBlockStructure = (block) => {
   return (
     typeof block.index === "number" &&
     typeof block.hash === "string" &&
